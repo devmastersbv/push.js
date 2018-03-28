@@ -20,11 +20,11 @@ export default class Permission {
     }
 
     /**
-   * Requests permission for desktop notifications
-   * @param {Function} onGranted - Function to execute once permission is granted
-   * @param {Function} onDenied - Function to execute once permission is denied
-   * @return {void, Promise}
-   */
+     * Requests permission for desktop notifications
+     * @param {Function} onGranted - Function to execute once permission is granted
+     * @param {Function} onDenied - Function to execute once permission is denied
+     * @return {void, Promise}
+     */
     request(onGranted: () => void, onDenied: () => void) {
         return arguments.length > 0
             ? this._requestWithCallback(...arguments)
@@ -32,12 +32,12 @@ export default class Permission {
     }
 
     /**
-   * Old permissions implementation deprecated in favor of a promise based one
-   * @deprecated Since V1.0.4
-   * @param {Function} onGranted - Function to execute once permission is granted
-   * @param {Function} onDenied - Function to execute once permission is denied
-   * @return {void}
-   */
+     * Old permissions implementation deprecated in favor of a promise based one
+     * @deprecated Since V1.0.4
+     * @param {Function} onGranted - Function to execute once permission is granted
+     * @param {Function} onDenied - Function to execute once permission is denied
+     * @return {void}
+     */
     _requestWithCallback(onGranted: () => void, onDenied: () => void) {
         const existing = this.get();
 
@@ -62,13 +62,19 @@ export default class Permission {
             this._win.Notification &&
             this._win.Notification.requestPermission
         ) {
-            /* Chrome 23+ */
-            this._win.Notification
-                .requestPermission()
-                .then(resolve)
-                .catch(function() {
+            let promise = undefined;
+
+            let callback = () => {
+                if (promise) resolve();
+            };
+
+            promise = this._win.Notification.requestPermission(callback);
+
+            if (promise) {
+                promise.then(resolve).catch(function() {
                     if (onDenied) onDenied();
                 });
+            }
         } else if (onGranted) {
             /* Let the user continue by default */
             onGranted();
@@ -76,9 +82,9 @@ export default class Permission {
     }
 
     /**
-   * Requests permission for desktop notifications in a promise based way
-   * @return {Promise}
-   */
+     * Requests permission for desktop notifications in a promise based way
+     * @return {Promise}
+     */
     _requestAsPromise(): Promise<void> {
         const existing = this.get();
 
@@ -107,28 +113,37 @@ export default class Permission {
                     resolver(result);
                 });
             } else if (isModernAPI) {
-                this._win.Notification
-                    .requestPermission()
-                    .then(result => {
-                        resolver(result);
-                    })
-                    .catch(rejectPromise);
+                let promise = undefined;
+                let callback = () => {
+                    if (!promise) resolver(this._win.Notification.permission);
+                };
+
+                promise = this._win.Notification.requestPermission(callback);
+
+                /* Support for safari */
+                if (promise) {
+                    promise
+                        .then(result => {
+                            resolver(result);
+                        })
+                        .catch(rejectPromise);
+                }
             } else resolvePromise();
         });
     }
 
     /**
-   * Returns whether Push has been granted permission to run
-   * @return {Boolean}
-   */
+     * Returns whether Push has been granted permission to run
+     * @return {Boolean}
+     */
     has() {
         return this.get() === this.GRANTED;
     }
 
     /**
-   * Gets the permission level
-   * @return {Permission} The permission level
-   */
+     * Gets the permission level
+     * @return {Permission} The permission level
+     */
     get() {
         let permission;
 
